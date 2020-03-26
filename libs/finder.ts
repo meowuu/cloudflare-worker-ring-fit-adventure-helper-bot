@@ -22,7 +22,7 @@ export default function (name: string) {
   const title = `你想找的材料 ${ name } 可以在以下关卡找到: `
   return [title]
     .concat(list.map(item => {
-      return `世界: ${ item.World } 关卡: ${item.level} 建议人物等级: ${ item['Lv.'] }`
+      return `世界: ${ item.World } ,关卡: ${item.level} ,建议人物等级: ${ item['Lv.'] };`
     }))
     .join('\n')
 }
