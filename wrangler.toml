@@ -1,7 +1,5 @@
 name = "cloudflare-worker-ring-fit-adventure-helper-bot"
 type = "webpack"
 webpack_config = "webpack.config.js"
-account_id = ""
+account_id = "cb285e09b74f33fe86f5f07ab656753c"
 workers_dev = true
-route = ""
-zone_id = ""
