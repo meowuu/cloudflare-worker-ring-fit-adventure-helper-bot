@@ -1,3 +1,7 @@
+import finder from './libs/finder'
+import parseUrl from 'parseurl'
+import { match } from 'path-to-regexp'
+
 const bot_token = "<TOKEN>";
 const telegram_bot_api = "https://api.telegram.org/bot" + bot_token + "/";
 
@@ -7,7 +11,7 @@ addEventListener('fetch', event => {
     const { request } = event
     const { url } = request
     if (url.includes('form')) {
-        return event.respondWith(rawHtmlResponse(someForm))
+        // return event.respondWith(rawHtmlResponse(someForm))
     }
     if (request.method === 'POST') {
         return event.respondWith(handlePostRequest(request))
@@ -16,9 +20,7 @@ addEventListener('fetch', event => {
     }
 })
 
-async function handlePostRequest(request) {
-
-
+async function handlePostRequest(request: Request) {
     let bodyString = await readRequestBody(request)
 
     try {
@@ -41,30 +43,14 @@ async function handlePostRequest(request) {
             if (body.message.text) {
 
                 if (body.message.text.startsWith("/ingredient") && body.message.text.split(" ").length == 2) {
-                // payload.text = body.message.text;
-
-                let target = body.message.text.split(" ")[1];
-                var url = "https://github.com/meowuu/cloudflare-worker-ring-fit-adventure-helper-bot/raw/master/en.json";
-                const init = {
-                  method: "GET"
-                };
-                const response = await fetch(url, init);
-                var resptxt = await response.text();
-                var json = JSON.parse(resptxt);
-                let list = json.filter(item => { return item["Ingredient 1"] == target || item["Ingredient 2"] == target || item["Ingredient 3"] == target || item["Ingredient 4"] == target || item["Ingredient 5"] == target; });
-
-                let text= "你想找的材料 "+target+" 可以在以下关卡找到: ";
-
-                list.forEach(function(item){
-                    text += '\n世界: '+ item.World + ' 关卡: ' + item.level + ' 建议人物等级: ' + item['Lv.'];
-                });
-
-                payload.text = text;}
+                  const [_, name] = body.message.text.split(" ")[1];
+                
+                  payload.text = finder(name)
+                }
 
                 if (body.message.text.startsWith("/start")||body.message.text.startsWith("/help")) {
                     payload.text = "/start - print this info\n/ingredient - search ingredient";
                 }
-
 
                 const opts = {
                     method: 'POST',
@@ -78,17 +64,15 @@ async function handlePostRequest(request) {
 
                 fetch(myRequest);
 
-
                 return new Response("OK")
             } else {
                 return new Response("OK")
             }
-
         } else {
             return new Response(JSON.stringify(body), init)
         }
-
     } catch (e) {
+        const payload: any = {}
         payload.text = e.message
         const opts = {
             method: 'POST',
@@ -99,12 +83,24 @@ async function handlePostRequest(request) {
         };
         let myRequest = new Request(telegram_bot_api, opts)
 
-        //return new Response(e)
+        return new Response(e)
     }
 }
-async function handleRequest(request) {
-    let retBody = `The request was a GET `
-    return new Response(retBody)
+
+async function handleRequest(request: Request) {
+  const parsedUrl = parseUrl({ url: request.url } as any)
+  let retBody = `The request was a GET `
+  if (parsedUrl && parsedUrl.path) {
+    const ingredientMatch = match<{
+      name: string
+    }>('/ingredient/:name')
+    const matchResult = ingredientMatch(parsedUrl.path)
+    if (matchResult) {
+      retBody = finder(decodeURIComponent(matchResult.params.name))
+    }
+  }
+  console.log(request.url)
+  return new Response(retBody)
 }
 
 /**
@@ -112,7 +108,7 @@ async function handleRequest(request) {
  * into the worker script
  * @param {string} html
  */
-async function rawHtmlResponse(html) {
+async function rawHtmlResponse(html: string) {
     const init = {
         headers: {
             'content-type': 'text/html;charset=UTF-8',
@@ -125,9 +121,12 @@ async function rawHtmlResponse(html) {
  * Use await readRequestBody(..) in an async function to get the string
  * @param {Request} request the incoming request to read from
  */
-async function readRequestBody(request) {
+async function readRequestBody(request: Request) {
     const { headers } = request
     const contentType = headers.get('content-type')
+    if (contentType === null) {
+      return ''
+    }
     if (contentType.includes('application/json')) {
         const body = await request.json()
         return JSON.stringify(body)
@@ -139,10 +138,10 @@ async function readRequestBody(request) {
         return body
     } else if (contentType.includes('form')) {
         const formData = await request.formData()
-        let body = {}
-        for (let entry of formData.entries()) {
-            body[entry[0]] = entry[1]
-        }
+        const body: any = {}
+        formData.forEach((item, k) => {
+          body[k] = item
+        })
         return JSON.stringify(body)
     } else {
         let myBlob = await request.blob()
